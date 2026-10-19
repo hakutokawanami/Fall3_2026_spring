@@ -1,0 +1,324 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public enum StageType
+{
+    None,
+    Normal,
+    Fall
+}
+public class StageManager : MonoBehaviour
+{
+    //ステージのサイズ
+    [Header("Stage Size")]
+    //x軸マス数
+    [SerializeField] private int width= 10;
+    //y軸マス数
+    [SerializeField] private int height = 3;
+    //z軸マス数
+    [SerializeField] private int vertical= 10;
+
+    //ステージのPrefab
+    //段ごとに変える
+    [Header("Stage Prefab_1")]
+    [SerializeField] private GameObject stagePrefab_1;
+    [Header("Stage Prefab_2")]
+    [SerializeField] private GameObject stagePrefab_2;
+    [Header("Stage Prefab_3")]
+    [SerializeField] private GameObject stagePrefab_3;
+
+    //グリッド上のステージ情報
+    //(2次元配列)
+    private StageType[,,] grid;
+
+    //ステージオブジェクトへの参照
+    //(2次元配列)
+    private Stage[,,] stages;
+
+    // ------------------佐々木------------------
+    /// <summary>
+    /// ステージが落下するかどうかを設定する関数
+    /// </summary>
+    /// <param name="canFall">true:落下する / false:落下しない</param>
+    public void SetCanFall(bool canFall)
+    {
+        // 全てのステージに対して落下可能かどうかを設定する
+        foreach (var stage in stages)
+        {
+            if (stage != null)
+            {
+                stage.SetCanFall(canFall);
+            }
+        }
+
+        stages[0, 0, 0].SetCanFall(true); 
+
+        //for (int y = 0; y < height; y++)
+        //{
+        //    for (int x = 0; x < width; x++)
+        //    {
+        //        for (int z = 0; z < vertical; z++)
+        //        {
+        //            stages[x,y,z].SetCanFall(canFall);
+        //        }
+        //    }
+        //}
+    }
+
+    // -------------------佐々木------------------
+
+    // デバッグ用：現在選択中のマス
+    private int selectX = 0;
+    private int selectY = 0;
+    private int selectZ = 0;
+
+    //初期化
+    private void Start()
+    {
+       Init();
+    }
+
+    //初期化関数
+    public void Init()
+    {
+        //Breakしてから作る
+        BreakStage();
+        //グリッド初期化
+        InitGrid();
+        //ステージ作成
+        BuildStage();
+    }
+
+    //グリッドの初期化
+    void InitGrid()
+    {
+        //3次元配列を作る
+        //グリッドの配列
+        grid = new StageType[width, height,vertical];
+        //見た目の配列
+        stages = new Stage[width, height, vertical];
+
+        //ステージ配置
+        for(int y = 0;y<height;y++)
+        {
+            for(int x = 0;x<width;x++)
+            {
+                for(int z = 0; z < vertical; z++)
+                {
+                    grid[x, y,z] = StageType.Normal;
+                }       
+            }
+        }
+    }
+
+    //ステージ作成
+    void BuildStage()
+    {
+        for(int y = 0;y<height;y++)
+        {
+            for(int x = 0;x<width;x++)
+            {
+                for(int z = 0; z < vertical; z++)
+                {
+                    SpawnStage(x, y,z);
+                }        
+            }
+        }
+    }
+    //指定されたマスにステージを生成する
+    void SpawnStage(int x,int y,int z)
+    {
+        //置く必要がなかったら何もしない
+        if (grid[x,y,z] == StageType.None)
+        {
+            return;
+        }
+
+        //GameObject go = Instantiate(stagePrefab_1, transform);
+        GameObject go;
+        Stage stage;
+        //ステージの生成
+        switch (y)
+        {
+            case 0:
+                go = Instantiate(stagePrefab_1, transform);
+                stage = go.GetComponent<Stage>();
+                stage.SetGridPos(x, y, z);
+                stages[x, y, z] = stage;
+                break;
+            case 1:
+                go = Instantiate(stagePrefab_2, transform);
+                stage = go.GetComponent<Stage>();
+                stage.SetGridPos(x, y, z);
+                stages[x, y, z] = stage;
+                break;
+            case 2:
+                go = Instantiate(stagePrefab_3, transform);
+                stage = go.GetComponent<Stage>();
+                stage.SetGridPos(x, y, z);
+                stages[x, y, z] = stage;
+                break;
+            default:
+                break;
+        }
+        
+        //Stage stage = go.GetComponent<Stage>();
+        //グリッド座標を設定する
+        //stage.SetGridPos(x, y,z);
+        //見た目の配列に登録
+        //stages[x, y, z] = stage;
+    }
+
+    //ステージを破壊する
+    public void BreakStage()
+    {
+        if(grid == null)
+        {
+            return;
+        }
+
+        if(stages == null)
+        {
+            return;
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                for (int z = 0; z < vertical; z++)
+                {
+                    //範囲外チェック
+                    if (!InRange(x, y, z))
+                    {
+                        return;
+                    }
+
+                    //グリッドのデータを変更
+                    grid[x, y, z] = StageType.None;
+
+                    //見た目の変更
+                    if (stages[x, y, z] != null)
+                    {
+                        Destroy(stages[x, y, z].gameObject);
+                        stages[x, y, z] = null;
+                    }
+                }
+            }
+        }
+    }
+
+    public void FallStage(int x,int y,int z)
+    {
+        Debug.Log($"FallStage {x},{y},{z}");
+        //範囲外チェック
+        if (!InRange(x, y,z))
+        {
+            return;
+        }
+
+        //すでに空なら何もしない
+        if (grid[x, y, z] == StageType.None)
+        {
+            return;
+        }
+
+        //グリッドのデータを変更
+        grid[x, y, z] = StageType.Fall;
+
+        //stage本体の関数を呼び出す
+        stages[x, y, z].Fall();
+    }
+
+    // グリッドの範囲チェック
+    bool InRange(int x, int y, int z)
+    {
+        return x >= 0 && x < width &&
+               y >= 0 && y < height&&
+               z >= 0 && z < vertical;
+    }
+
+    private void Update()
+    {
+        // カーソル移動
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            selectX--;
+        }
+        if (Input.GetKeyDown(KeyCode.D))
+        {
+            selectX++;
+        }
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+        {
+            selectY++;
+        }
+        if (Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            selectY--;
+        }
+        if (Input.GetKeyDown(KeyCode.W))
+        {
+            selectZ++;
+        }
+        if (Input.GetKeyDown(KeyCode.S))
+        {
+            selectZ--;
+        }
+
+        // 範囲内に制限
+        if(selectX < 0)
+        {
+            selectX = 0;
+        }
+        if (selectY < 0)
+        {
+            selectY = 0;
+        }
+        if (selectZ < 0)
+        {
+            selectZ = 0;
+        }
+        if (selectX > width - 1)
+        {
+            selectX = width - 1;
+        }
+        if (selectY > height - 1)
+        {
+            selectY = height - 1;
+        }
+        if (selectZ > vertical - 1)
+        {
+            selectZ = vertical - 1;
+        }
+
+        // スペースキーで落とす
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            FallStage(selectX, selectY,selectZ);
+            Debug.Log($"Selected: {selectX}, {selectY}, {selectZ}");
+        }
+    }
+    //デバッグ用にどのブロックを選んでいるか可視化する関数
+    void OnDrawGizmos()
+    {
+        //if (stages == null) return;
+
+        //Stage stage = stages[selectX, selectY,selectZ];
+        //if (stage == null) return;
+        
+
+
+        //色を変える
+        Gizmos.color = Color.red;
+        Vector3 pos = new Vector3(selectX,-selectY,selectZ);
+        pos.x += 0.5f;
+        pos.y += 0.5f;
+        pos.z += 0.5f;
+        Gizmos.DrawWireCube(
+            pos,
+            Vector3.one
+        );
+    }
+}
